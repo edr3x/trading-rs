@@ -26,7 +26,9 @@ impl Orderbook {
                 let price = Price::new(price);
 
                 match self.bids.get_mut(&price) {
-                    Some(limit) => println!("already got a limit!!"),
+                    Some(limit) => {
+                        limit.add_order(order);
+                    }
                     None => {
                         let mut limit = Limit::new(price);
                         limit.add_order(order);
@@ -93,10 +95,11 @@ impl Order {
 }
 
 fn main() {
-    let buy_order = Order::new(BidOrAsk::Bid, 5.5);
-    let sell_order = Order::new(BidOrAsk::Ask, 2.45);
+    let buy_order_from_greed = Order::new(BidOrAsk::Bid, 5.5);
+    let buy_order_from_zuki = Order::new(BidOrAsk::Bid, 2.45);
 
     let mut orderbook = Orderbook::new();
-    orderbook.add_order(4.4, buy_order);
+    orderbook.add_order(4.4, buy_order_from_greed);
+    orderbook.add_order(4.4, buy_order_from_zuki);
     println!("{:?}", orderbook);
 }
