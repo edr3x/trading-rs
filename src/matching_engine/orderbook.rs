@@ -20,6 +20,29 @@ impl Orderbook {
         }
     }
 
+    pub fn fill_market_order(&mut self, market_order: &mut Order) {
+        match market_order.bid_or_ask {
+            BidOrAsk::Bid => {
+                for limit_order in self.ask_limits() {
+                    limit_order.fill_order(market_order);
+
+                    if market_order.is_filled() {
+                        break;
+                    }
+                }
+            }
+            BidOrAsk::Ask => {}
+        }
+    }
+
+    pub fn bit_limits(&mut self) -> Vec<&mut Limit> {
+        self.bids.values_mut().collect::<Vec<&mut Limit>>()
+    }
+
+    pub fn ask_limits(&mut self) -> Vec<&mut Limit> {
+        self.asks.values_mut().collect::<Vec<&mut Limit>>()
+    }
+
     pub fn add_order(&mut self, price: f64, order: Order) {
         let price = Price::new(price);
 
@@ -84,8 +107,16 @@ impl Limit {
         }
     }
 
+    fn total_volume(&self) -> f64 {
+        self.orders
+            .iter()
+            .map(|order| order.size)
+            .reduce(|a, b| a + b)
+            .unwrap()
+    }
+
     fn fill_order(&mut self, market_order: &mut Order) {
-        for limit_order in self.orders.iter_mut() {
+        for lim0it_order in self.orders.iter_mut() {
             match market_order.size >= limit_order.size {
                 true => {
                     market_order.size -= limit_order.size;
@@ -127,6 +158,19 @@ impl Order {
 #[cfg(test)]
 pub mod tests {
     use super::*;
+
+    #[test]
+    fn limit_total_volume() {
+        let price = Price::new(1000.0);
+        let mut limit = Limit::new(price);
+        let buy_limit_order_a = Order::new(BidOrAsk::Bid, 100.0);
+        let buy_limit_order_b = Order::new(BidOrAsk::Bid, 100.0);
+
+        limit.add_order(buy_limit_order_a);
+        limit.add_order(buy_limit_order_b);
+
+        assert_eq!(limit.total_volume(), 200.0)
+    }
 
     #[test]
     fn limit_order_multi_fill() {
