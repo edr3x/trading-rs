@@ -84,6 +84,25 @@ impl Limit {
         }
     }
 
+    fn fill_order(&mut self, market_order: &mut Order) {
+        for limit_order in self.orders.iter_mut() {
+            match market_order.size >= limit_order.size {
+                true => {
+                    market_order.size -= limit_order.size;
+                    limit_order.size = 0.0
+                }
+                false => {
+                    limit_order.size -= market_order.size;
+                    market_order.size = 0.0
+                }
+            }
+
+            if market_order.is_filled() {
+                break;
+            }
+        }
+    }
+
     fn add_order(&mut self, order: Order) {
         self.orders.push(order);
     }
@@ -98,5 +117,54 @@ pub struct Order {
 impl Order {
     pub fn new(bid_or_ask: BidOrAsk, size: f64) -> Order {
         Order { size, bid_or_ask }
+    }
+
+    pub fn is_filled(&self) -> bool {
+        self.size == 0.0
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    #[test]
+    fn limit_order_multi_fill() {
+        let price = Price::new(1000.0);
+        let mut limit = Limit::new(price);
+        let buy_limit_order_a = Order::new(BidOrAsk::Bid, 100.0);
+        let buy_limit_order_b = Order::new(BidOrAsk::Bid, 100.0);
+
+        limit.add_order(buy_limit_order_a);
+        limit.add_order(buy_limit_order_b);
+
+        let mut market_sell_order = Order::new(BidOrAsk::Ask, 199.0);
+        limit.fill_order(&mut market_sell_order);
+
+        println!("{:?}", limit);
+
+        assert_eq!(market_sell_order.is_filled(), true);
+        assert_eq!(limit.orders.get(0).unwrap().is_filled(), true);
+        assert_eq!(limit.orders.get(1).unwrap().is_filled(), false);
+        assert_eq!(limit.orders.get(1).unwrap().size, 1.0);
+
+        println!("{:?}", limit);
+    }
+
+    #[test]
+    fn limit_order_single_fill() {
+        let price = Price::new(1000.0);
+        let mut limit = Limit::new(price);
+        let buy_limit_order = Order::new(BidOrAsk::Bid, 100.0);
+
+        limit.add_order(buy_limit_order);
+
+        let mut market_sell_order = Order::new(BidOrAsk::Ask, 99.0);
+        limit.fill_order(&mut market_sell_order);
+
+        println!("{:?}", limit);
+
+        assert_eq!(market_sell_order.is_filled(), true);
+        assert_eq!(limit.orders.get(0).unwrap().size, 1.0);
     }
 }
